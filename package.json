@@ -3,10 +3,15 @@
   "scripts": {
     "dev": "next",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "prisma": "prisma",
+    "format": "prettier --write \"src/**/*.ts\" \"src/**/*.tsx\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
+    "@prisma/adapter-pg": "^5.19.1",
+    "@prisma/client": "^5.19.1",
+    "@radix-ui/colors": "^3.0.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
     "@radix-ui/react-aspect-ratio": "^1.1.0",
@@ -44,6 +49,7 @@
     "input-otp": "^1.2.4",
     "lucide-react": "^0.439.0",
     "next": "latest",
+    "next-auth": "5.0.0-beta.20",
     "next-themes": "^0.3.0",
     "react": "^18.2.0",
     "react-day-picker": "8.10.1",
@@ -66,7 +72,16 @@
     "@types/react-dom": "^18.2.18",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.45",
+    "prettier": "^3.3.3",
+    "prisma": "^5.19.1",
     "tailwindcss": "^3.4.10",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "zod-prisma": "^0.5.4"
+  },
+  "prisma": {
+    "schema": "src/prisma/schema.prisma"
+  },
+  "engines": {
+    "node": "20.x"
   }
 }

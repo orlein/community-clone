@@ -1,0 +1,199 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["views"]
+  relationMode    = "prisma"
+  extensions      = ["(function)", "pg_trgm", "(function)"]
+}
+
+generator zod {
+  provider = "zod-prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Account {
+  id           String    @id @default(cuid())
+  plainEmail   String    @unique
+  passwordHash String
+  passwordSalt String
+  description  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  isToBeReset  Boolean   @default(false)
+  Profiles     Profile[]
+}
+
+model Profile {
+  id                    String         @id @default(cuid())
+  accountId             String
+  name                  String?
+  phone                 String?
+  avatar                String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  deletedAt             DateTime?
+  WrittenComments       Comment[]
+  ReceivedNotifications Notification[] @relation("ReceivedNotifications")
+  SentNotifications     Notification[] @relation("SentNotifications")
+  WrittenPosts          Post[]
+  account               Account        @relation(fields: [accountId], references: [id])
+  Vote                  Vote[]
+  Groups                Group[]        @relation("GroupToProfile")
+}
+
+model Group {
+  id          String     @id @unique @default(cuid())
+  name        String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+  communityId String?
+  isSystem    Boolean    @default(false)
+  Community   Community? @relation(fields: [communityId], references: [id])
+  Roles       Role[]
+  Profiles    Profile[]  @relation("GroupToProfile")
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  groupId     String?
+  description String?
+  Group       Group?       @relation(fields: [groupId], references: [id])
+  Permissions Permission[] @relation("PermissionToRole")
+}
+
+model Permission {
+  id        String    @id @default(cuid())
+  targetUri String
+  create    Boolean
+  read      Boolean
+  update    Boolean
+  delete    Boolean
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  Roles     Role[]    @relation("PermissionToRole")
+}
+
+model Community {
+  id           String    @id @default(cuid())
+  name         String    @unique
+  coverImgUrl  String?
+  description  String?
+  announcement String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  Groups       Group[]
+  Posts        Post[]
+  Tags         Tag[]     @relation("CommunityToTag")
+}
+
+model Post {
+  id               String     @id @default(cuid())
+  title            String
+  content          String
+  isCommentable    Boolean    @default(true)
+  isVisible        Boolean    @default(true)
+  authorId         String
+  communityId      String?
+  categoryId       String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  deletedAt        DateTime?
+  type             String     @default("ARTICLE")
+  ChildrenComments Comment[]
+  Author           Profile    @relation(fields: [authorId], references: [id])
+  Community        Community? @relation(fields: [communityId], references: [id])
+  Vote             Vote[]
+  Categories       Category[] @relation("CategoryToPost")
+  Tags             Tag[]      @relation("PostToTag")
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  Comments  Comment[] @relation("CategoryToComment")
+  Posts     Post[]    @relation("CategoryToPost")
+}
+
+model Comment {
+  id         Int        @id @default(autoincrement())
+  content    String
+  authorId   String
+  isVisible  Boolean    @default(true)
+  postId     String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  deletedAt  DateTime?
+  author     Profile    @relation(fields: [authorId], references: [id])
+  ParentPost Post?      @relation(fields: [postId], references: [id])
+  Vote       Vote[]
+  Categories Category[] @relation("CategoryToComment")
+}
+
+model File {
+  id        String    @id @default(cuid())
+  name      String
+  mimeType  String
+  size      Int
+  path      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+model Tag {
+  id          String      @id @unique @default(cuid())
+  name        String      @unique
+  description String?
+  imageUrl    String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+  Communities Community[] @relation("CommunityToTag")
+  Posts       Post[]      @relation("PostToTag")
+}
+
+model Notification {
+  id              String    @id @unique @default(cuid())
+  title           String
+  content         String
+  href            String
+  isRead          Boolean   @default(false)
+  isPinned        Boolean   @default(false)
+  senderNameAlias String?
+  senderId        String
+  recipientId     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  recipient       Profile   @relation("ReceivedNotifications", fields: [recipientId], references: [id])
+  sender          Profile   @relation("SentNotifications", fields: [senderId], references: [id])
+}
+
+model Vote {
+  id              String    @id @default(cuid())
+  isUpvote        Boolean
+  profileId       String
+  targetPostId    String    @map("postId")
+  targetCommentId Int?      @map("commentId")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  TargetComment   Comment?  @relation(fields: [targetCommentId], references: [id])
+  TargetPost      Post?     @relation(fields: [targetPostId], references: [id])
+  Voter           Profile   @relation(fields: [profileId], references: [id])
+}
