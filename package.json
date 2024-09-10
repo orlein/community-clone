@@ -2,7 +2,7 @@
   "private": true,
   "scripts": {
     "dev": "next",
-    "build": "next build",
+    "build": "npx prisma db push && npx prisma generate && next build",
     "start": "next start",
     "prisma": "prisma",
     "format": "prettier --write \"src/**/*.ts\" \"src/**/*.tsx\""
