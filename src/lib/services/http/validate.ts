@@ -1,9 +1,13 @@
+import { ErrorAbstract } from '@/lib/errorts';
 import { Effect } from 'effect';
 import { z } from 'zod';
 
-class InvalidRequestDtoError {
+class InvalidRequestDtoError extends ErrorAbstract {
   readonly _tag = 'InvalidRequestDtoError';
-  constructor(readonly error?: string) {}
+}
+
+class InvalidResponseDtoError extends ErrorAbstract {
+  readonly _tag = 'InvalidResponseDtoError';
 }
 
 export function validateRequest<T extends any = unknown>(
@@ -14,14 +18,14 @@ export function validateRequest<T extends any = unknown>(
     const body = yield* Effect.tryPromise({
       try: async () => request.json() as Promise<T>,
       catch: (error) =>
-        new InvalidRequestDtoError('Error parsing request body'),
+        new InvalidRequestDtoError('Error parsing request body', 400),
     });
 
     const parsedBody = schema.safeParse(body);
 
     if (!parsedBody.success) {
       return yield* Effect.fail(
-        new InvalidRequestDtoError(parsedBody.error.message),
+        new InvalidRequestDtoError(parsedBody.error.message, 400),
       );
     }
 
@@ -39,7 +43,9 @@ export function validateResponse<T extends any = unknown>(
     const parsedBody = schema.safeParse(body);
 
     if (!parsedBody.success) {
-      throw new Error(parsedBody.error.message);
+      return yield* Effect.fail(
+        new InvalidResponseDtoError(parsedBody.error.message, 500),
+      );
     }
 
     return parsedBody.data;

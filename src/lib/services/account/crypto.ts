@@ -1,9 +1,13 @@
+import { ErrorAbstract } from '@/lib/errorts';
 import { Context, Effect, Layer } from 'effect';
 import { pbkdf2, randomBytes } from 'node:crypto';
 
-class GeneratingSaltError {
+class GeneratingSaltError extends ErrorAbstract {
   readonly _tag = 'GeneratingSaltError';
-  constructor(readonly error?: string) {}
+}
+
+class HashingError extends ErrorAbstract {
+  readonly _tag = 'HashingError';
 }
 
 export class CryptoService extends Context.Tag('CryptoService')<
@@ -15,13 +19,13 @@ export class CryptoService extends Context.Tag('CryptoService')<
     hashPassword: (
       password: string,
       salt: string,
-    ) => Effect.Effect<Buffer, Error, never>;
+    ) => Effect.Effect<Buffer, HashingError, never>;
   }
 >() {
   static getRandomSalt = function (size = 16) {
     const bufferSalt = Effect.try({
       try: () => randomBytes(size),
-      catch: (error) => new GeneratingSaltError(`Error generating salt`),
+      catch: (error) => new GeneratingSaltError(`Error generating salt`, 500),
     });
 
     const program = Effect.gen(function* () {
@@ -33,10 +37,12 @@ export class CryptoService extends Context.Tag('CryptoService')<
   };
 
   static hashPassword = function (password: string, salt: string) {
-    const bufferHash = Effect.async<Buffer, Error>((resume) => {
+    const bufferHash = Effect.async<Buffer, HashingError>((resume) => {
       pbkdf2(password, salt, 1000, 64, 'sha512', (err, derivedKey) => {
         if (err) {
-          return resume(Effect.fail(err));
+          return resume(
+            Effect.fail(new HashingError(`Error hashing password`, 500)),
+          );
         }
 
         resume(Effect.succeed(derivedKey));

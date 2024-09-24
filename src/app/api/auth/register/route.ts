@@ -7,22 +7,28 @@ import {
 import { Effect, Layer } from 'effect';
 import { RegisterRequestDto, RegisterResponseDto } from './register.dto';
 import { NextResponse } from 'next/server';
+import { ErrorAbstract } from '@/lib/errorts';
+import { transformResponse } from '@/lib/services/http/transform';
+
+class RegisterError extends ErrorAbstract {
+  readonly _tag = 'RegisterError';
+}
 
 export async function POST(request: Request) {
-  try {
-    const program = Effect.gen(function* () {
-      const prismaService = yield* PrismaService;
-      const cryptoService = yield* CryptoService;
-      const body = yield* validateRequest(RegisterRequestDto, request);
+  const program = Effect.gen(function* () {
+    const prismaService = yield* PrismaService;
+    const cryptoService = yield* CryptoService;
+    const body = yield* validateRequest(RegisterRequestDto, request);
 
-      const newSalt = yield* cryptoService.getRandomSalt(16);
-      const passwordBuffer = yield* cryptoService.hashPassword(
-        body.password,
-        newSalt,
-      );
-      const hashedPassword = passwordBuffer.toString('hex');
+    const newSalt = yield* cryptoService.getRandomSalt(16);
+    const passwordBuffer = yield* cryptoService.hashPassword(
+      body.password,
+      newSalt,
+    );
+    const hashedPassword = passwordBuffer.toString('hex');
 
-      const newAccount = yield* Effect.tryPromise(() =>
+    const newAccount = yield* Effect.tryPromise({
+      try: () =>
         prismaService.account.create({
           data: {
             plainEmail: body.email,
@@ -30,32 +36,33 @@ export async function POST(request: Request) {
             passwordSalt: newSalt,
           },
         }),
-      );
-
-      const responseBody = yield* validateResponse(
-        RegisterResponseDto,
-        newAccount,
-      );
-
-      return responseBody;
-    });
-
-    const runnable = Effect.provide(
-      program,
-      Layer.merge(PrismaLive, CryptoLive),
-    );
-
-    const body = await Effect.runPromise(runnable);
-    return NextResponse.json(body, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
+      catch: (error) => {
+        return new RegisterError('Error creating account', 409);
       },
     });
-  } catch (e) {
-    return NextResponse.json(e, {
-      status: 500,
-      statusText: 'Internal Server Error',
-    });
-  }
+
+    const responseBody = yield* validateResponse(
+      RegisterResponseDto,
+      newAccount,
+    );
+
+    return transformResponse(responseBody);
+  });
+
+  const runnable = Effect.provide(
+    program,
+    Layer.merge(PrismaLive, CryptoLive),
+  ).pipe(
+    Effect.catchAll((error) =>
+      Effect.succeed(
+        transformResponse({
+          error: error.errorMessage,
+          status: error.status,
+        }),
+      ),
+    ),
+  );
+
+  const response = await Effect.runPromise(runnable);
+  return response;
 }
